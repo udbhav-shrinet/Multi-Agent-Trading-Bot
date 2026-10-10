@@ -1,50 +1,56 @@
-# Hierarchical Multi-Process Algorithmic Trading & Quantitative Research Engine
+# AlphaLens: Institutional Multi-Factor Quant Screener & Regime Pipeline
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Interactive Demo](https://img.shields.io/badge/demo-GitHub%20Pages-purple.svg)](https://udbhav-shrinet.github.io/Multi-Agent-Trading-Bot/)
-[![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11-blue.svg)]()
-[![Alpaca API](https://img.shields.io/badge/broker-Alpaca%20Markets-green.svg)]()
+[![Interactive Screener](https://img.shields.io/badge/demo-AlphaLens%20Terminal-9333ea.svg)](https://udbhav-shrinet.github.io/Multi-Agent-Trading-Bot/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)]()
+[![Broker](https://img.shields.io/badge/broker-Alpaca%20Markets-059669.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> Autonomous institutional-grade algorithmic trading architecture combining real-time market intelligence, macro regime detection (FRED), quantitative price forecasting (ARIMA / Exponential Smoothing), and risk-managed execution via Alpaca Markets.
+> **AlphaLens** is an autonomous institutional-grade quantitative research, cross-sectional factor screening, macro regime detection, and portfolio execution terminal. Built on purged walk-forward Machine Learning, statistical mean-reversion modeling, and portfolio-level tail-risk constraints (VaR / CVaR) with automated Alpaca paper broker execution.
 
 ---
 
-## 🚀 Live Interactive Showcase
+## ⚡ Live Quantitative Screener & Terminal
 
-Inspect live trading simulations, equity curves, portfolio council decisions, and macroeconomic regime scores:  
-👉 **[Launch Quantitative Trading Dashboard](https://udbhav-shrinet.github.io/Multi-Agent-Trading-Bot/)**
-
----
-
-## ✨ Key Capabilities
-
-- **Modular Autonomous Architecture**: Decoupled specialized processes:
-  - `market_intelligence.py`: Real-time news scraping via RSS, sentiment analysis, and volatility scoring.
-  - `quant_research.py`: Stationary price forecasting, ARIMA models, and historical price indexing via Yahoo Finance.
-  - `portfolio_council.py`: Aggregates signals, calculates dynamic Kelly Criterion bet sizing, and enforces portfolio diversification.
-  - `execution_commander.py`: Interacts with Alpaca Trade API to submit fractional or whole-share market and limit orders.
-  - `position_manager.py`: Monitors real-time drawdown, trailing stops, and takes profit.
-- **Macroeconomic Regime Scoring**: Direct integration with Federal Reserve Economic Data (FRED) to evaluate interest rates, yield curve spreads, and liquidity environments.
-- **Automated GitHub Actions Scheduler**: Periodic execution during active US Market hours (09:30 - 16:00 EST).
-- **Interactive Visual Studio**: High-frequency dashboard featuring live PnL tracking, asset allocation donuts, and trade logs.
+Explore live universe screening, cross-sectional factor rankings, regime classification, and live paper execution telemetry:  
+👉 **[Launch AlphaLens Quant Terminal](https://udbhav-shrinet.github.io/Multi-Agent-Trading-Bot/)**
 
 ---
 
-## 🛠️ Trading Pipeline
+## 🎯 Key Quant & Engineering Capabilities
+
+- **Cross-Sectional Multi-Factor Screener**:
+  - Live screening across 500+ US equity candidates with real-time sorting by statistical edge, directional probability, 1D return, and RSI.
+  - Export full universe factor diagnostics directly to CSV for offline quantitative research.
+- **Hierarchical Autonomous Intelligence Pipeline**:
+  - **Market Intelligence (`market_intelligence.py`)**: Computes log returns, ATR(14), RSI(14), Bollinger Bands, MACD, and real-time sentiment NLP via VADER & TF-IDF on news/social feeds.
+  - **Quantitative Research (`quant_research.py`)**: Fits Ornstein-Uhlenbeck mean-reversion parameters ($\theta, \mu$), simulates Geometric Brownian Motion (GBM) paths, and predicts directional probability via purged walk-forward calibrated Random Forest models.
+  - **Macroeconomic Regime Scoring (`fred_tools.py`)**: Ingests Federal Reserve Economic Data (FRED) including the 10Y-2Y Treasury yield curve spread and VIX to establish systemic risk-on / risk-off factors.
+  - **Portfolio Risk Council (`portfolio_council.py`)**: Solves portfolio-level allocation using half-Kelly criteria, volatility targeting, and strict parametric VaR (95%) and CVaR (95%) gates to veto high-tail-risk candidates.
+  - **Execution Commander (`execution_commander.py`)**: Institutional execution engine enforcing single-point execution, fractional long routing, and TWAP-sliced order execution via Alpaca Markets.
+- **Automated US Market Session Scheduler**:
+  - Continuous scheduling via GitHub Actions every 30 minutes during active NYSE/NASDAQ market sessions (EDT / EST adjusted).
+
+---
+
+## 🏗️ Quantitative Data Flow Architecture
 
 ```text
-┌─────────────────────────┐       ┌────────────────────────┐       ┌──────────────────────┐
-│ Candidate Watchlist     │ ───>  │  Market Intelligence & │ ───>  │ Quant Research &     │
-│ (500+ S&P / Tech Assets)│       │  RSS News Sentiment    │       │ Time-Series Analysis │
-└─────────────────────────┘       └────────────────────────┘       └──────────┬───────────┘
-                                                                              │
-                                                   ┌──────────────────────────┴──────────────────────────┐
-                                                   ▼                                                     ▼
-                                       ┌─────────────────────────┐                           ┌───────────────────────┐
-                                       │   Portfolio Council &   │                           │  Execution Commander  │
-                                       │   Dynamic Risk Sizing   │                           │  Alpaca Markets API   │
-                                       └─────────────────────────┘                           └───────────────────────┘
+┌────────────────────────────────┐
+│   500+ Liquid Candidate Pool   │
+└────────────────┬───────────────┘
+                 │
+                 ▼
+┌────────────────────────────────┐       ┌────────────────────────────────┐
+│   Market Intelligence Bureau   │ ───>  │  Quantitative Research Bureau  │
+│  Technical Factors + NLP Sent  │       │  OU Mean-Reversion + ML P(Up)  │
+└────────────────────────────────┘       └───────────────┬────────────────┘
+                                                         │
+                                                         ▼
+┌────────────────────────────────┐       ┌────────────────────────────────┐
+│   Execution Commander          │ <───  │   Portfolio Council Risk Gate  │
+│   TWAP Slicing & Alpaca Broker │       │   VaR / CVaR & Volatility Cap  │
+└────────────────────────────────┘       └────────────────────────────────┘
 ```
 
 ---

@@ -3,27 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trading Pipeline Dashboard</title>
+<meta name="description" content="AlphaLens: Institutional-grade quantitative research, macro regime forecasting, triple-barrier ML signals, and autonomous Alpaca execution terminal.">
+<meta name="keywords" content="quantitative finance, algorithmic trading, ML screener, macro regime, alpaca markets, factor investing, risk parity, VaR CVaR">
+<meta property="og:title" content="AlphaLens — Quantitative Screener & Regime Pipeline">
+<meta property="og:description" content="Autonomous multi-factor algorithmic trading terminal combining macro regime detection, purged walk-forward ML directional forecasting, and risk-budgeted Alpaca paper execution.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>AlphaLens — Institutional Multi-Factor Quant Screener & Regime Pipeline</title>
 <style>
   :root {
-    color-scheme: light;
-    --page:           #f9f9f7;
-    --surface-1:      #fcfcfb;
-    --surface-2:      #f2f1ed;
-    --text-primary:   #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted:     #898781;
-    --gridline:       #e1e0d9;
-    --baseline:       #c3c2b7;
-    --border:         rgba(11,11,11,0.10);
-    --series-1:       #2a78d6;
-    --series-neg:     #d03b3b;
-    --good:           #0ca30c;
-    --good-text:      #006300;
-    --critical:       #d03b3b;
-    --warning:        #fab219;
-    /* ordinal ramp (light: steps 250/350/450/550) */
-    --ord-1: #86b6ef; --ord-2: #5598e7; --ord-3: #2a78d6; --ord-4: #1c5cab;
+    color-scheme: dark;
+    --page:           #120a16;
+    --surface-1:      #18181b;
+    --surface-2:      #27272a;
+    --text-primary:   #f4f4f5;
+    --text-secondary: #a1a1aa;
+    --text-muted:     #71717a;
+    --gridline:       #3f3f46;
+    --baseline:       #52525b;
+    --border:         rgba(255,255,255,0.08);
+    --series-1:       #c084fc;
+    --series-neg:     #f87171;
+    --good:           #4ade80;
+    --good-text:      #4ade80;
+    --critical:       #f87171;
+    --warning:        #fbbf24;
+    --ord-1: #e9d5ff; --ord-2: #d8b4fe; --ord-3: #c084fc; --ord-4: #a855f7;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -74,7 +80,7 @@
     padding: 28px 20px 56px;
     background: var(--page);
     color: var(--text-primary);
-    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 14px/1.55 "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 1180px; margin: 0 auto; }
@@ -223,7 +229,7 @@
     margin-top: 14px; max-height: 460px; overflow: auto;
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
     padding: 10px 12px;
-    font: 12px/1.75 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font: 12px/1.75 "JetBrains Mono", ui-monospace, monospace;
   }
   .log-line { white-space: nowrap; color: var(--text-secondary); }
   .log-line + .log-line { border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
@@ -275,18 +281,19 @@
 <body>
 <div class="wrap">
   <header class="masthead">
-    <h1>Trading Pipeline Dashboard</h1>
-    <p class="subtitle">Market Intelligence &rarr; Quant Research &rarr; Portfolio Council &rarr; Execution Commander &middot; Alpaca paper trading</p>
+    <h1>AlphaLens <span>Quantitative Screener</span></h1>
+    <p class="subtitle">Institutional Multi-Factor Regime & Forecasting Terminal · Alpaca Paper Engine</p>
   </header>
 
   <div class="tabs" id="tabs">
-    <button class="tab-btn active" data-tab="main">Overview</button>
+    <button class="tab-btn active" data-tab="screener">Quant Screener</button>
+    <button class="tab-btn" data-tab="main">Portfolio &amp; Equity</button>
     <button class="tab-btn" data-tab="teamc">Market Intelligence</button>
     <button class="tab-btn" data-tab="teamb">Quant Research</button>
     <button class="tab-btn" data-tab="teama">Portfolio Council</button>
     <button class="tab-btn" data-tab="teams">Execution Commander</button>
-    <button class="tab-btn" data-tab="runs">Runs &amp; logs</button>
-    <button class="tab-btn" data-tab="about">How it works</button>
+    <button class="tab-btn" data-tab="runs">Runs &amp; Audit Logs</button>
+    <button class="tab-btn" data-tab="about">Architecture</button>
   </div>
 
   <div class="filters">
@@ -309,7 +316,10 @@ const LONG_THRESHOLD = 0.55;   // mirrors form_trade_thesis()
 const SHORT_THRESHOLD = 0.45;
 
 let historyData = [];
-let activeTab = 'main';
+let activeTab = 'screener';
+let screenerSortCol = 'expected_edge';
+let screenerSortAsc = false;
+let screenerQuery = '';
 let symbolFilter = 'ALL';
 let hoverPoints = [];
 
@@ -624,6 +634,122 @@ function buildEquitySeries(rows) {
   return rows
     .filter(r => r.account && typeof r.account.equity === 'number')
     .map(r => ({ t: r.run_at, equity: r.account.equity }));
+}
+
+
+/* ------------------------------------------------------------- screener */
+
+function renderScreenerTab(rows) {
+  const latest = latestPerSymbol(rows);
+  const totalScanned = latest.length;
+
+  let items = latest;
+  if (screenerQuery) {
+    const q = screenerQuery.toUpperCase();
+    items = items.filter(r => r.symbol.toUpperCase().includes(q) || (r.research?.direction || '').toUpperCase().includes(q) || (r.research?.regime || '').toUpperCase().includes(q));
+  }
+
+  const longCandidates = latest.filter(r => (r.research?.probability_up ?? r.team_b?.ml_engineer?.probability_up_next_day ?? 0.5) >= LONG_THRESHOLD).length;
+  const shortCandidates = latest.filter(r => (r.research?.probability_up ?? r.team_b?.ml_engineer?.probability_up_next_day ?? 0.5) <= SHORT_THRESHOLD).length;
+  const passedCouncil = latest.filter(r => r.team_a_report?.approved).length;
+
+  items.sort((a, b) => {
+    let valA, valB;
+    const resA = a.research || {}, resB = b.research || {};
+    const techA = a.team_c?.statistics || resA.technical || {}, techB = b.team_c?.statistics || resB.technical || {};
+    const mlA = resA.probability_up ?? a.team_b?.ml_engineer?.probability_up_next_day ?? 0.5;
+    const mlB = resB.probability_up ?? b.team_b?.ml_engineer?.probability_up_next_day ?? 0.5;
+
+    switch (screenerSortCol) {
+      case 'symbol': valA = a.symbol; valB = b.symbol; break;
+      case 'price': valA = resA.price ?? a.team_c?.last_close ?? 0; valB = resB.price ?? b.team_c?.last_close ?? 0; break;
+      case 'return_1d': valA = techA.return_1d ?? 0; valB = techB.return_1d ?? 0; break;
+      case 'probability_up': valA = mlA; valB = mlB; break;
+      case 'expected_edge': valA = resA.expected_edge ?? Math.abs(mlA - 0.5); valB = resB.expected_edge ?? Math.abs(mlB - 0.5); break;
+      case 'volatility': valA = resA.volatility ?? a.team_b?.mathematician?.annualized_volatility ?? 0; valB = resB.volatility ?? b.team_b?.mathematician?.annualized_volatility ?? 0; break;
+      case 'rsi_14': valA = techA.rsi_14 ?? 50; valB = techB.rsi_14 ?? 50; break;
+      case 'sentiment': valA = a.team_c?.sentiment?.mean_compound ?? 0; valB = b.team_c?.sentiment?.mean_compound ?? 0; break;
+      default: valA = a.symbol; valB = b.symbol;
+    }
+    if (typeof valA === 'string') {
+      return screenerSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+    return screenerSortAsc ? (valA - valB) : (valB - valA);
+  });
+
+  const arrow = col => screenerSortCol === col ? (screenerSortAsc ? ' ▲' : ' ▼') : '';
+
+  const tableRows = items.map(r => {
+    const res = r.research || {};
+    const tech = r.team_c?.statistics || res.technical || {};
+    const ml = res.probability_up ?? r.team_b?.ml_engineer?.probability_up_next_day ?? 0.5;
+    const edge = res.expected_edge ?? (Math.abs(ml - 0.5) * 2 * (res.volatility || 0.2));
+    const price = res.price ?? r.team_c?.last_close;
+    const r1d = tech.return_1d;
+    const rsi = tech.rsi_14;
+    const vol = res.volatility ?? r.team_b?.mathematician?.annualized_volatility;
+    const sent = r.team_c?.sentiment?.mean_compound;
+    const dir = res.direction ?? r.team_a_report?.direction ?? (ml >= LONG_THRESHOLD ? 'long' : ml <= SHORT_THRESHOLD ? 'short' : 'flat');
+    const approved = r.team_a_report?.approved;
+    const executed = r.execution_result?.executed;
+
+    const rsiColor = rsi >= 70 ? 'var(--critical)' : rsi <= 30 ? 'var(--good)' : 'var(--text-secondary)';
+    const edgeColor = edge > 0.03 ? 'var(--good)' : 'var(--text-secondary)';
+
+    return `<tr>
+      <td><strong>${esc(r.symbol)}</strong></td>
+      <td class="num">${price ? fmtMoney(price, 2) : '—'}</td>
+      <td class="num" style="color: ${r1d > 0 ? 'var(--good)' : r1d < 0 ? 'var(--critical)' : 'inherit'}">${r1d !== undefined ? fmtSignedPct(r1d) : '—'}</td>
+      <td class="num"><strong>${fmtPct(ml)}</strong></td>
+      <td class="num" style="color: ${edgeColor}">${fmtPct(edge, 2)}</td>
+      <td>${dirCell(dir)}</td>
+      <td><span class="badge muted">${esc(res.regime || r.team_b?.mathematician?.market_regime || 'neutral')}</span></td>
+      <td class="num">${fmtPct(vol, 1)}</td>
+      <td class="num" style="color: ${rsiColor}">${fmtNum(rsi, 1)}</td>
+      <td class="num">${sent !== undefined ? fmtNum(sent, 2) : '—'}</td>
+      <td>${approved ? badge('Approved', 'good') : badge('Filtered', 'muted')}</td>
+      <td>${executed ? badge('Filled', 'good') : (r.execution_result?.reason ? badge('Skipped', 'muted') : '—')}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="tiles" style="margin-bottom:14px">
+      <div class="tile"><div class="label">Universe Tracked</div><div class="value">${totalScanned}</div><div class="sub">active candidate assets</div></div>
+      <div class="tile"><div class="label">Bullish Bias [P &ge; 55%]</div><div class="value">${longCandidates}</div><div class="sub">long setup signals</div></div>
+      <div class="tile"><div class="label">Bearish Bias [P &le; 45%]</div><div class="value">${shortCandidates}</div><div class="sub">short setup signals</div></div>
+      <div class="tile"><div class="label">Portfolio Gate Cleared</div><div class="value">${passedCouncil}</div><div class="sub">VaR/CVaR risk-approved</div></div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h2>Multi-Factor Quantitative Screener</h2>
+          <p class="note" style="margin:2px 0 0;">Click any column header to sort. Cross-sectional valuation, ML walk-forward probability, volatility and macro risk factors.</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="screener-search" placeholder="Search ticker, regime, bias..." value="${esc(screenerQuery)}" style="background:var(--surface-2); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); padding:6px 10px; font-size:12px; width:210px;">
+          <button id="screener-export" style="background:var(--surface-2); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); padding:6px 12px; font-size:12px; cursor:pointer;">Export CSV</button>
+        </div>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr>
+          <th style="cursor:pointer" data-sort="symbol">Symbol${arrow('symbol')}</th>
+          <th class="num" style="cursor:pointer" data-sort="price">Last Price${arrow('price')}</th>
+          <th class="num" style="cursor:pointer" data-sort="return_1d">1D Return${arrow('return_1d')}</th>
+          <th class="num" style="cursor:pointer" data-sort="probability_up">P(Up)${arrow('probability_up')}</th>
+          <th class="num" style="cursor:pointer" data-sort="expected_edge">Edge${arrow('expected_edge')}</th>
+          <th>Bias</th>
+          <th>Regime</th>
+          <th class="num" style="cursor:pointer" data-sort="volatility">Vol (Ann.)${arrow('volatility')}</th>
+          <th class="num" style="cursor:pointer" data-sort="rsi_14">RSI (14)${arrow('rsi_14')}</th>
+          <th class="num" style="cursor:pointer" data-sort="sentiment">Sentiment${arrow('sentiment')}</th>
+          <th>Council</th>
+          <th>Execution</th>
+        </tr></thead>
+        <tbody>${tableRows || '<tr><td colspan="12" class="nodata">No matching assets found.</td></tr>'}</tbody>
+      </table></div>
+    </div>
+  `;
 }
 
 function renderMainTab(rows) {
@@ -1315,6 +1441,7 @@ function wireChartHovers() {
 /* ---------------------------------------------------------------- router */
 
 const TABS = {
+  screener: renderScreenerTab,
   main: renderMainTab, teamc: renderTeamCTab, teamb: renderTeamBTab,
   teama: renderTeamATab, teams: renderTeamSTab, runs: renderRunsTab, about: renderAboutTab,
 };
@@ -1354,6 +1481,60 @@ function render() {
     `${rows.length} scans · ${runs} pipeline runs · last ${relTime(lastRun)}`;
 
   wireChartHovers();
+
+  // Screener interactions
+  if (activeTab === 'screener') {
+    const searchInput = document.getElementById('screener-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', e => {
+        screenerQuery = e.target.value;
+        render();
+        const ni = document.getElementById('screener-search');
+        if (ni) { ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); }
+      });
+    }
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (screenerSortCol === col) { screenerSortAsc = !screenerSortAsc; }
+        else { screenerSortCol = col; screenerSortAsc = false; }
+        render();
+      });
+    });
+    const exportBtn = document.getElementById('screener-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const latest = latestPerSymbol(filtered());
+        const headers = ['Symbol','Price','Return1D','P_Up','ExpectedEdge','Regime','Volatility','RSI14','Sentiment'];
+        const csvRows = [headers.join(',')];
+        latest.forEach(r => {
+          const res = r.research || {};
+          const tech = r.team_c?.statistics || res.technical || {};
+          const ml = res.probability_up ?? r.team_b?.ml_engineer?.probability_up_next_day ?? 0.5;
+          const edge = res.expected_edge ?? Math.abs(ml - 0.5);
+          csvRows.push([
+            r.symbol,
+            res.price ?? r.team_c?.last_close ?? '',
+            tech.return_1d ?? '',
+            ml,
+            edge,
+            res.regime ?? r.team_b?.mathematician?.market_regime ?? '',
+            res.volatility ?? r.team_b?.mathematician?.annualized_volatility ?? '',
+            tech.rsi_14 ?? '',
+            r.team_c?.sentiment?.mean_compound ?? ''
+          ].join(','));
+        });
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `alphalens_quant_screener_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+  }
+
 }
 
 document.getElementById('tabs').addEventListener('click', e => {

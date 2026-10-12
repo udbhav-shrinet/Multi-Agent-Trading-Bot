@@ -5,15 +5,99 @@ Yahoo Finance price history, Reddit (PRAW), and news headlines via RSS.
 
 import os
 
-import feedparser
-import praw
+import numpy as np
 from dotenv import load_dotenv
+
+try:
+    import feedparser
+except ImportError:
+    feedparser = None
+
+try:
+    import praw
+except ImportError:
+    praw = None
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config", ".env"))
 
 
-def get_reddit_client() -> praw.Reddit:
+def get_vader_analyzer():
+    """Lazily load or initialize the NLTK VADER SentimentIntensityAnalyzer."""
+    try:
+        import nltk
+        from nltk.sentiment.vader import SentimentIntensityAnalyzer
+        try:
+            return SentimentIntensityAnalyzer()
+        except LookupError:
+            nltk.download("vader_lexicon", quiet=True)
+            return SentimentIntensityAnalyzer()
+    except Exception:
+        return None
+
+
+def calculate_sentiment_metrics(texts: list[str], weights: list[float] | None = None) -> dict:
+    """Compute detailed sentiment statistics using NLTK VADER."""
+    analyzer = get_vader_analyzer()
+    if not analyzer or not texts:
+        return {
+            "mean_compound": 0.0,
+            "std_compound": 0.0,
+            "positive_ratio": 0.0,
+            "negative_ratio": 0.0,
+            "neutral_ratio": 1.0,
+            "weighted_compound": 0.0,
+            "sample_count": 0,
+            "available": False,
+        }
+
+    compounds = []
+    pos_count = 0
+    neg_count = 0
+    neu_count = 0
+
+    valid_weights = []
+    if weights and len(weights) == len(texts):
+        valid_weights = [max(0.1, float(w)) for w in weights]
+    else:
+        valid_weights = [1.0] * len(texts)
+
+    for text in texts:
+        if not text or not text.strip():
+            compounds.append(0.0)
+            neu_count += 1
+            continue
+        scores = analyzer.polarity_scores(text)
+        cmp = scores["compound"]
+        compounds.append(cmp)
+        if cmp >= 0.05:
+            pos_count += 1
+        elif cmp <= -0.05:
+            neg_count += 1
+        else:
+            neu_count += 1
+
+    total = len(texts)
+    mean_cmp = float(np.mean(compounds)) if compounds else 0.0
+    std_cmp = float(np.std(compounds)) if len(compounds) > 1 else 0.0
+    w_sum = sum(valid_weights)
+    weighted_cmp = float(sum(c * w for c, w in zip(compounds, valid_weights)) / max(w_sum, 1e-9))
+
+    return {
+        "mean_compound": round(mean_cmp, 4),
+        "std_compound": round(std_cmp, 4),
+        "positive_ratio": round(pos_count / max(total, 1), 4),
+        "negative_ratio": round(neg_count / max(total, 1), 4),
+        "neutral_ratio": round(neu_count / max(total, 1), 4),
+        "weighted_compound": round(weighted_cmp, 4),
+        "sample_count": total,
+        "available": True,
+    }
+
+
+def get_reddit_client():
     """Build an authenticated read-only PRAW client from environment variables."""
+    if praw is None:
+        raise RuntimeError("praw is not installed")
     return praw.Reddit(
         # .strip() guards against stray whitespace/tab characters that can
         # sneak in when a secret is copy-pasted into a CI provider's UI --
@@ -60,6 +144,9 @@ def scrape_news_headlines(symbol: str, feed_templates: list[str] | None = None, 
     Pull recent news headlines mentioning `symbol` from RSS feeds (Yahoo
     Finance and Google News by default). No API key required.
     """
+    if feedparser is None:
+        print("[Market Intelligence] feedparser not installed -- skipping RSS headlines.")
+        return []
     feed_templates = feed_templates or DEFAULT_NEWS_RSS_FEEDS
     articles = []
     for template in feed_templates:

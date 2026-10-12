@@ -971,6 +971,7 @@ function renderTeamBTab(rows) {
         ? fmtPct(m.annualized_drift_macro_adjusted) + (damped ? ' ' + badge('damped', 'warning') : '')
         : '—'}</td>
       <td class="num">${fmtPct(m.annualized_volatility)}</td>
+      <td class="num">${r.research?.garch_volatility ? fmtPct(r.research.garch_volatility) : '—'}</td>
       <td class="num">${fmtNum(ou.theta, 3)}</td>
       <td class="num">${fmtNum(ou.mu, 2)}</td>
       <td class="num">${fmtPct(ml.probability_up_next_day)}</td>
@@ -1060,8 +1061,8 @@ function renderTeamBTab(rows) {
       <h2>Quant detail</h2>
       <p class="note">Quant Research output per scan, including regime, volatility and calibrated directional probability.</p>
       <div class="scroll"><table>
-        <thead><tr><th>Time</th><th>Symbol</th><th>Regime</th><th>Ann. drift</th><th>Adj. drift</th><th>Ann. vol</th><th>OU θ</th><th>OU μ</th><th>P(up)</th></tr></thead>
-        <tbody>${tableRows || '<tr><td colspan="9" class="nodata">No data.</td></tr>'}</tbody></table></div>
+        <thead><tr><th>Time</th><th>Symbol</th><th>Regime</th><th>Ann. drift</th><th>Adj. drift</th><th>Ann. vol</th><th>GARCH vol</th><th>OU θ</th><th>OU μ</th><th>P(up)</th></tr></thead>
+        <tbody>${tableRows || '<tr><td colspan="10" class="nodata">No data.</td></tr>'}</tbody></table></div>
     </div>`;
 }
 
@@ -1090,8 +1091,12 @@ function renderTeamATab(rows) {
         <div class="tile"><div class="label">Vol target</div><div class="value">${fmtPct(latestPlan.constraints.target_annual_volatility, 0)}</div><div class="sub">annualized</div></div>
       </div>
       <div class="scroll"><table>
-        <thead><tr><th>Symbol</th><th>Side</th><th>Notional</th><th>Risk fraction</th><th>Expected edge</th><th>Estimated cost</th><th>Stop distance</th></tr></thead>
-        <tbody>${planTrades.length ? planTrades.map(t => `<tr><td><strong>${esc(t.symbol)}</strong></td><td>${dirCell(t.side === 'buy' ? 'long' : 'short')}</td><td class="num">${fmtMoney(t.notional_usd, 2)}</td><td class="num">${fmtPct(t.risk_fraction, 2)}</td><td class="num">${fmtPct(t.expected_edge, 2)}</td><td class="num">${fmtPct(t.estimated_round_trip_cost, 2)}</td><td class="num">${fmtNum(t.stop_distance, 2)}</td></tr>`).join('') : '<tr><td colspan="7" class="nodata">No trades survived the portfolio gate.</td></tr>'}</tbody>
+        <thead><tr><th>Symbol</th><th>Side</th><th>Notional</th><th>Risk fraction</th><th>Expected edge</th><th>Estimated cost</th><th>Stop distance</th><th>Fama-French 3-Factor</th><th>Almgren-Chriss Impact</th></tr></thead>
+        <tbody>${planTrades.length ? planTrades.map(t => {
+          const ff = t.fama_french ? `β_mkt: ${fmtNum(t.fama_french.beta_mkt, 2)}, α: ${fmtPct(t.fama_french.alpha_annual)}` : '—';
+          const ac = t.almgren_chriss ? `${fmtNum(t.almgren_chriss.expected_cost_bps, 1)} bps (${t.almgren_chriss.recommended_slices} slc)` : '—';
+          return `<tr><td><strong>${esc(t.symbol)}</strong></td><td>${dirCell(t.side === 'buy' ? 'long' : 'short')}</td><td class="num">${fmtMoney(t.notional_usd, 2)}</td><td class="num">${fmtPct(t.risk_fraction, 2)}</td><td class="num">${fmtPct(t.expected_edge, 2)}</td><td class="num">${fmtPct(t.estimated_round_trip_cost, 2)}</td><td class="num">${fmtNum(t.stop_distance, 2)}</td><td><span class="badge" style="background:#2e1065;color:#c084fc;font-size:11px;padding:2px 6px">${ff}</span></td><td><span class="badge" style="background:#1e1b4b;color:#a5b4fc;font-size:11px;padding:2px 6px">${ac}</span></td></tr>`;
+        }).join('') : '<tr><td colspan="9" class="nodata">No trades survived the portfolio gate.</td></tr>'}</tbody>
       </table></div>
     </div>` : '';
 

@@ -71,6 +71,9 @@ jobs:
       - name: Download NLTK VADER lexicon
         run: python -m nltk.downloader vader_lexicon
 
+      - name: Run automated test suite
+        run: python tests/run_all_tests.py
+
       - name: Run pipeline
         env:
           APCA_API_BASE_URL: https://paper-api.alpaca.markets

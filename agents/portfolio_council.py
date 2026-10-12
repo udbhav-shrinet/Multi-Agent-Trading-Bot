@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from agents.quant_methods import fama_french_factor_adjust, statistical_arbitrage_score, almgren_chriss_execution_cost
 
 
 def _portfolio_tail_risk(selected: list[dict], notionals: list[float]) -> tuple[float, float]:
@@ -87,6 +88,17 @@ def build_portfolio_plan(
         stop_distance = max(item["atr"] * 2.0, item["price"] * 0.01)
         volatility_scale = min(1.0, target_annual_volatility / max(item["volatility"], 0.05))
         notional = per_trade_cap * volatility_scale
+
+        # Integrate institutional quant methods: Fama-French risk adjustment & Almgren-Chriss execution cost
+        ff_metrics = fama_french_factor_adjust(item.get("recent_returns", []))
+        shares = notional / max(item["price"], 1e-9)
+        ac_cost = almgren_chriss_execution_cost(
+            total_shares=shares,
+            price=item["price"],
+            daily_volume=item.get("average_dollar_volume", 1_000_000) / max(item["price"], 1e-9),
+            volatility=item["volatility"],
+        )
+
         trades.append({
             "symbol": item["symbol"],
             "side": "buy" if item["direction"] == "long" else "sell",
@@ -97,6 +109,8 @@ def build_portfolio_plan(
             "risk_fraction": round(notional / max(equity, 1), 5),
             "estimated_round_trip_cost": item["estimated_round_trip_cost"],
             "expected_edge": item["expected_edge"],
+            "fama_french": ff_metrics,
+            "almgren_chriss": ac_cost,
             "reason": item["reasons"],
         })
     notionals = [trade["notional_usd"] for trade in trades]

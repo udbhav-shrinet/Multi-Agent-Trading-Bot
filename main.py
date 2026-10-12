@@ -29,7 +29,7 @@ from tools.alpaca_tools import (
     get_open_positions,
     get_order_status,
 )
-from tools.fred_tools import get_macro_snapshot
+from tools.fred_tools import get_macro_history, get_macro_snapshot
 from tools.run_logger import append_run_record
 from tools.trade_ledger import append_fill_snapshots, order_ids_from_execution
 
@@ -79,12 +79,13 @@ def run_pipeline(
         symbols = affordable_symbols(SP500_CANDIDATES, account.get("equity"), max_candidates)
     print(f"[Market Intelligence] Scanning {len(symbols)} symbols.")
     macro = get_macro_snapshot()
+    macro_history = get_macro_history()
     research = []
     failures = []
     for symbol in symbols:
         try:
             intelligence = gather_market_intelligence(symbol)
-            research.append(research_symbol(intelligence, macro))
+            research.append(research_symbol(intelligence, macro, macro_history=macro_history))
         except Exception as exc:
             failures.append({"symbol": symbol, "error": str(exc)})
             print(f"[{symbol}] rejected before research: {exc}")

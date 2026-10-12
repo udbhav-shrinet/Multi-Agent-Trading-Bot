@@ -7,6 +7,8 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.isotonic import IsotonicRegression
 
+from agents.econometric_models import forecast_garch_volatility
+
 
 def macro_score(t10y2y: float | None, vix: float | None) -> float:
     """Score macro risk on [-1, 1]; positive is risk-on.
@@ -68,7 +70,7 @@ def triple_barrier_labels(
     return labels
 
 
-def _feature_frame(daily: pd.DataFrame, current_macro: float) -> tuple[pd.DataFrame, list[str]]:
+def _feature_frame(daily: pd.DataFrame, macro_history: dict[str, dict[str, float]] | None = None) -> tuple[pd.DataFrame, list[str]]:
     close = daily["Close"]
     frame = pd.DataFrame(index=daily.index)
     frame["r1"] = close.pct_change()
@@ -79,19 +81,50 @@ def _feature_frame(daily: pd.DataFrame, current_macro: float) -> tuple[pd.DataFr
         / (-close.diff().clip(upper=0)).rolling(14).mean().replace(0, np.nan)
     )
     frame["mom20"] = close / close.shift(20) - 1
-    # Historical macro observations are not available in this call. Do not
-    # repeat today's macro value across old rows; that would contaminate the
-    # walk-forward training distribution. Macro is fused after prediction.
+    
+    # Integrate historical macro data (T10Y2Y and VIXCLS) aligned by date with forward-fill
+    macro_scores = []
+    if macro_history and "t10y2y" in macro_history and "vixcls" in macro_history:
+        t10_hist = macro_history["t10y2y"]
+        vix_hist = macro_history["vixcls"]
+        
+        # Sort dates for forward fill
+        t10_dates = sorted(t10_hist.keys())
+        vix_dates = sorted(vix_hist.keys())
+        
+        import bisect
+        for date in frame.index:
+            date_str = date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else str(date)[:10]
+            
+            # Find latest available t10y2y
+            t10_val = None
+            idx = bisect.bisect_right(t10_dates, date_str) - 1
+            if idx >= 0:
+                t10_val = t10_hist[t10_dates[idx]]
+                
+            # Find latest available vixcls
+            vix_val = None
+            idx_v = bisect.bisect_right(vix_dates, date_str) - 1
+            if idx_v >= 0:
+                vix_val = vix_hist[vix_dates[idx_v]]
+                
+            macro_scores.append(macro_score(t10_val, vix_val))
+    else:
+        # Fallback if no history provided
+        macro_scores = [0.0] * len(frame)
+        
+    frame["macro_score"] = macro_scores
+    
     labels = triple_barrier_labels(close)
     frame["target"] = (labels > 0).astype(float)
     frame.loc[labels.isna(), "target"] = np.nan
-    features = ["r1", "r5", "vol", "rsi", "mom20"]
+    features = ["r1", "r5", "vol", "rsi", "mom20", "macro_score"]
     return frame, features
 
 
 def purged_walk_forward_probability(
     daily: pd.DataFrame,
-    current_macro: float,
+    macro_history: dict[str, dict[str, float]] | None = None,
     train_window: int = 252,
     validation_window: int = 20,
     embargo: int = 5,
@@ -103,7 +136,7 @@ def purged_walk_forward_probability(
     calibration. This is a compact purged/embargoed walk-forward procedure,
     not a claim that calibration remains stable in a new regime.
     """
-    frame, feature_cols = _feature_frame(daily, current_macro)
+    frame, feature_cols = _feature_frame(daily, macro_history)
     usable = frame.dropna(subset=feature_cols + ["target"])
     latest_features = frame.dropna(subset=feature_cols).iloc[[-1]]
     if len(usable) < 100 or usable["target"].nunique() < 2:
@@ -151,10 +184,10 @@ def purged_walk_forward_probability(
     }
 
 
-def research_symbol(intelligence: dict, macro: dict) -> dict:
+def research_symbol(intelligence: dict, macro: dict, macro_history: dict[str, dict[str, float]] | None = None) -> dict:
     features = intelligence["daily_features"]
     macro_value = macro_score(macro.get("t10y2y"), macro.get("vixcls"))
-    ml = purged_walk_forward_probability(intelligence["daily"], macro_value)
+    ml = purged_walk_forward_probability(intelligence["daily"], macro_history)
     probability = ml["probability"]
     trend_score = np.tanh(
         3 * features["return_20d"] + 2 * features["return_5d"]
@@ -170,7 +203,9 @@ def research_symbol(intelligence: dict, macro: dict) -> dict:
         - int(features["breakdown_20d"])
     ) / 3
     sentiment_score = intelligence["sentiment"]["score"] if intelligence["sentiment"]["available"] else 0.0
-    recent_returns = intelligence["daily"]["Close"].pct_change().dropna().tail(60).tolist()
+    returns_series = intelligence["daily"]["Close"].pct_change().dropna()
+    recent_returns = returns_series.tail(60).tolist()
+    garch_vol = forecast_garch_volatility(returns_series)
     average_dollar_volume = float(
         (intelligence["daily"]["Close"] * intelligence["daily"]["Volume"]).rolling(20).mean().iloc[-1]
     )
@@ -197,6 +232,7 @@ def research_symbol(intelligence: dict, macro: dict) -> dict:
         "regime": market_regime(features),
         "macro_score": macro_value,
         "volatility": features["volatility_20d"],
+        "garch_volatility": garch_vol,
         "atr": features["atr_14"],
         "price": features["last_price"],
         "sentiment": intelligence["sentiment"],

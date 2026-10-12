@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from tools.reddit_news_scraper import (
+    calculate_sentiment_metrics,
     get_yahoo_price_history,
     scrape_news_headlines,
     scrape_reddit_mentions,
@@ -125,19 +126,23 @@ def _sentiment(symbol: str) -> dict:
         f"{item.get('title', '')} {item.get('description', '')}"
         for item in news
     ]
-    try:
-        from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    # Weight reddit posts by engagement (score + comments) and news by recency
+    weights = [
+        max(1.0, float(item.get("score", 1) + item.get("num_comments", 0)))
+        for item in reddit
+    ] + [2.0 for _ in news]
 
-        analyzer = SentimentIntensityAnalyzer()
-        scores = [analyzer.polarity_scores(text)["compound"] for text in texts if text.strip()]
-    except LookupError:
-        scores = []
+    metrics = calculate_sentiment_metrics(texts, weights=weights)
     return {
-        "score": float(np.mean(scores)) if scores else 0.0,
-        "sample_count": len(scores),
+        "score": metrics["weighted_compound"],
+        "mean_compound": metrics["mean_compound"],
+        "std_compound": metrics["std_compound"],
+        "positive_ratio": metrics["positive_ratio"],
+        "negative_ratio": metrics["negative_ratio"],
+        "sample_count": metrics["sample_count"],
         "reddit_count": len(reddit),
         "news_count": len(news),
-        "available": bool(scores),
+        "available": metrics["available"],
     }
 
 
